@@ -1,0 +1,124 @@
+---
+title: "Exploring Shiny"
+author: "Robert Olendorf"
+date: "March 2, 2016"
+output: html_document
+---
+
+```{r. setup, echo=FALSE, warning=FALSE, message=FALSE}
+  if(!require("pander"))
+  {
+    install.packages("pander", repos="http://cran.rstudio.com/", dependencies = TRUE)
+  }
+  
+  library("pander")
+```
+
+## Getting Started
+
+Creating a new Shiny App is very easy. Just go to **[File/New Project .../New Directory/Shiny App]**. Then give it a name **_random_thoughts_** this time. Go ahead and initialize the Git repository too. RStudio will create two files for you, **_ui.R** and **_server.R_**. 
+
+### Shiny UI
+
+The Shiny UI can be thought of consisting of a layout, inputs and outputs. We don't have enough time to go through all the options, but there is excellent documentation following the links below. You can also go to the very handy [Shiny Reference Page](http://shiny.rstudio.com/reference/shiny/latest/)
+
+#### Layouts
+
+
+  * http://shiny.rstudio.com/tutorial/lesson2/
+  * http://shiny.rstudio.com/articles/layout-guide.html
+  
+```{r, layouts-table, echo=FALSE}
+  layouts.data <- read.csv("assets/data/layouts.csv")
+  pander(layouts.data)
+```
+
+#### Widgets (inputs): 
+
+  * http://shiny.rstudio.com/tutorial/lesson3/
+    
+```{r, widgets-table, echo=FALSE}
+
+  widget.data <- read.csv("assets/data/widgets.csv")
+  pander(widget.data)
+```
+    
+### Outputs:
+  * http://shiny.rstudio.com/tutorial/lesson4/
+  
+```{r, outputs-table, echo=FALSE}
+  outputs.data <- read.csv("assets/data/outputs.csv")
+  pander(outputs.data)
+```
+    
+The layouts, as you would expect, determine where everythign goes. Inputs, or Widgets, are elements that allow user input. When an input changes, the data is sent to the **_server.R_** script. **_server.R_** reanalyzes the data and sends the results to the correct output function.
+
+In the default application the RStudio creates, we have a ```fluidPage``` with a ```titlePanel``` using a  ```sidebarLayout``` with one ```sidebarPanel``` and one ```mainPanel``` defined. We have one input, a ```sliderInput()```. One ```plotOutput()```.  Inputs vary a bit in their signature, but they all require 
+  
+  * a **name**, used by R to identify the widget's value to the server. It is not seen by the user.
+  * a **label** Seen by the user, but not used by R.
+  
+  Outputs rquire a *name* which identifies the data sent by the server tothe UI.
+  
+### Shiny Server
+
+A server is an R script. Inputs from the UI are designated by ```input$name```, where the name is the name givin in the **Input Widget**. In the default application we can see it used by the server to define the number of bins in the ```hist()``` function.
+
+The output is similarly defined by ```output$name```, where the name is used by the UI to display the data.
+
+As a sanity check, lets run this application locally, then we can deploy it to ShinyApps.io too. To run the app locally just click **_Run App_** at the top center. Publishing your app is almost as easy. Click the funny circle icon next to **_Run App_**. You may have to set up your connection. If you have a Github account, its probably easiest to just user the Github login method. Then follow the instructions on connecting to ShinyApps.io.
+
+Once you have the set up, click the publish icon. The defaults are probably fine. Shiny and RStudio will do most of the work for  you.
+
+Once it's all working. Go back to to [ShinyApps](https://www.shinyapps.io), log in if you need to, go to your **_Dashboard_** and click on the **_Applications_** tab on the left. Choose your application, click on the **_Settings (Gear)_** icon, and you can explore a lot of the analytical tools ShinyApps.io gives you. Some of the features require you to pay. I don't, so I can't say much about them.
+
+## Creating Our Own Application.
+
+As part of this exercise were going to use an unnecessarily complicated dice rolling function. The function rolls a specified number of dice on a given roll and sums the values. The rolls are repeated a number of times to generate distribution of outcomes. You can also roll different sided dice! I actually didn't know there were so many kinds of dice, even *one sided!#.
+
+I like to do things in baby steps, so lets do something similar to the default app, but add a few more widgets. Starting with the UI, lets add widgest for the number of dice, number of rolls, number of bins and number of sides.
+
+Our UI will look somethign like this.
+
+```r
+  library(shiny)
+
+  shinyUI(fluidPage(
+    
+    allowable.sides <- c(1:20, 22 , 24, 30, 32, 34, 48, 50, 60, 100, 120, 144),
+  
+    # Application title
+    titlePanel("Random Stocastic Chance"),
+  
+    # Sidebar with a slider input for number of bins
+    sidebarLayout(
+      sidebarPanel(
+        sliderInput("dice",
+                    "Number of Dice",
+                    min = 1,
+                    max = 20,
+                    value = 2),
+        
+        
+        numericInput("rolls",
+                    "Number of Rolls (Whole Numbers)",
+                    min = 1,
+                    value = 1000),
+        
+        selectInput("sides", "Number of Sides", allowable.sides),
+        
+        sliderInput("bins",
+                    "Number of bins:",
+                    min = 1,
+                    max = 50,
+                    value = 30)
+      ),
+  
+      # Show a plot of the generated distribution
+      mainPanel(
+        plotOutput("scores")
+      )
+    )
+  ))
+
+```

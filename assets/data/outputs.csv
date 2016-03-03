@@ -1,0 +1,10 @@
+Function,Purpose
+htmlOutput (uiOutput),Create an HTML output element
+plotOutput (imageOutput),Create an plot or image output element
+outputOptions,Set options for an output object.
+tableOutput (dataTableOutput),Create a table output element
+textOutput,Create a text output element
+verbatimTextOutput,Create a verbatim text output element
+downloadButton (downloadLink),Create a download button or link
+Progress,Reporting progress (object-oriented API)
+"withProgress (incProgress, setProgress)",Reporting progress (functional API)
