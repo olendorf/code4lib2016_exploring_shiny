@@ -395,7 +395,7 @@ $(document).ready(function () {
 <h2>Creating Our Own Application.</h2>
 <p>As part of this exercise were going to use an unnecessarily complicated dice rolling function. The function rolls a specified number of dice on a given roll and sums the values. The rolls are repeated a number of times to generate distribution of outcomes. You can also roll different sided dice! I actually didn’t know there were so many kinds of dice, even *one sided!#.</p>
 <p>I like to do things in baby steps, so lets do something similar to the default app, but add a few more widgets. Starting with the UI, lets add widgest for the number of dice, number of rolls, number of bins and number of sides.</p>
-<p>Our UI will look somethign like this.</p>
+<p>Our UI will look somethign like this ( <a href="https://github.com/olendorf/code4lib2016_random_stochastic_chance1/tree/v1.0">v1.0 in code4lib2016_random_stochastic_chance1</a>).</p>
 <pre class="r"><code>  library(shiny)
 
   shinyUI(fluidPage(
@@ -426,8 +426,8 @@ $(document).ready(function () {
                     &quot;Number of bins:&quot;,
                     min = 1,
                     max = 50,
-                    value = 30)
-      ),
+                    value = 30),
+                    
   
       # Show a plot of the generated distribution
       mainPanel(
@@ -436,6 +436,265 @@ $(document).ready(function () {
     )
   ))
 </code></pre>
+<p>Next we need to write the server. Keeping it simple we’ll just connect all the parts we defined in the UI.</p>
+<pre class="r"><code>  
+
+
+library(shiny)
+
+dice.rolls &lt;- function(number.dice = 1, number.rolls = 1, sides=6)
+{
+  output &lt;- NULL
+  if (!is.element(sides, allowable.sides))
+  {
+    return(paste(&quot;Error: &quot;, toString(sides), &quot; is not an allowable number of sides.&quot;))
+  }
+  
+  return(replicate(number.rolls, sum(sample(1:sides, number.dice, replace = TRUE))))
+  
+}
+
+
+allowable.sides &lt;- c(1:20, 22 , 24, 30, 32, 34, 48, 50, 60, 100, 120, 144)
+
+shinyServer(function(input, output) {
+  
+  output$scores &lt;- renderPlot({
+    scores = dice.rolls(
+      number.dice = input$dice, 
+      number.rolls = input$rolls,
+      sides = input$sides
+      )
+    
+    hist(scores, breaks = input$bins)
+    
+  })
+
+
+
+})
+</code></pre>
+<div id="improving-the-ui" class="section level3">
+<h3>Improving the UI</h3>
+<p>This works pretty well but we can make some enhancements to the user’s experience. First, if you play with the bins, you’ll see that user defined bins don’t always look so great. Lets give them the option to allow bins to be created automatically. In the UI lets add this to the code. Also lets create a grouping of UI alements, since we have some inputs that control the dice, and others the plotting. We can use the <code>wellPanel()</code> function, and add a <code>checkboxInput()</code> in <code>ui.R</code>.</p>
+<p>In our server we need to to refractor our code to check if the user has checked <strong><em>Bin Automatically</em></strong>. It will look something like this.</p>
+<pre class="r"><code>  output$scores &lt;- renderPlot({
+    scores = get.scores()
+
+    
+    histogrm &lt;- NULL
+    if(input$auto_bins)
+    {
+      histogrm &lt;- hist(scores)
+    }
+    else
+    {
+      histogrm &lt;- hist(scores, breaks = input$bins)
+    }
+    histogrm
+    
+  })</code></pre>
+<p>Trying it out, it should work, but if the user choosed to <strong><em>Bin Automatically</em></strong> they can also choose to change the number of bins, but that doesn’t do anything. This works as expected but is confusing, so lets disable the <strong><em>Number of bins</em></strong> slider when the <strong><em>Bin Automatically</em></strong> box is checked. Turns out this is hard in Shiny <strong>unless</strong> we load a new package. So load <strong>shinyjs</strong>. This is a nice package of javascript helpers, one of which disables inputs. To accomplish this we need to make the following changes. In <code>server.R</code> add <code>library(shinyjs)</code> near the top. Then inside the <code>shinyserver()</code> function add this.</p>
+<pre class="r"><code>  shinyServer(function(input, output, session) {
+    observe({
+      if (input$auto_bins == TRUE) {
+        shinyjs::disable(&quot;bins&quot;)
+      } else {
+        shinyjs::enable(&quot;bins&quot;)
+      }
+    })
+  
+  ...
+  ...
+  ...
+  }</code></pre>
+<p>In <code>ui.R</code> add this jus below the <code>shinyUI()</code> method.</p>
+<pre class="r"><code>
+  shinyUI(fluidPage(
+    
+    shinyjs::useShinyjs(),
+    
+    ...
+    ...
+    ...
+  ))</code></pre>
+<p>No when we restart the server, the <strong><em>Number of bins</em></strong> input should be disabled when we check the <strong><em>Bin Automatically</em></strong> box. There is one more issue. Start increasing the <strong><em>Number of rolls</em></strong>. As you get to a million, it starts taking a long time. This makes sense, were doing a lot of work. Now if you change the number of bins, it still takes a long time. This is bad, because we’re recalculating the rolls when we don’t need to. We just want to rebin the data. Fortunately we can do this as well with the <code>reactive()</code> methods. We need to change our <code>server.R</code> a bit. So after all these changes it should look like below. You can get this on github at <a href="https://github.com/olendorf/code4lib2016_random_stochastic_chance1/tree/v1.1.1">tag v1.1.1</a>.</p>
+<p><code>server.R</code></p>
+<pre class="r"><code>  library(shiny)
+  library(shinyjs)
+  
+  dice.rolls &lt;- function(number.dice = 1, number.rolls = 1, sides=6)
+  {
+    output &lt;- NULL
+    if (!is.element(sides, allowable.sides))
+    {
+      return(paste(&quot;Error: &quot;, toString(sides), &quot; is not an allowable number of sides.&quot;))
+    }
+    
+    return(replicate(number.rolls, sum(sample(1:sides, number.dice, replace = TRUE))))
+    
+  }
+  
+  
+  allowable.sides &lt;- c(1:20, 22 , 24, 30, 32, 34, 48, 50, 60, 100, 120, 144)
+  
+  shinyServer(function(input, output, session) {
+    
+    # Observer to see if we should disable the bins slider.
+    observe({
+      if (input$auto_bins == TRUE) {
+        shinyjs::disable(&quot;bins&quot;)
+      } else {
+        shinyjs::enable(&quot;bins&quot;)
+      }
+    })
+    
+    # Wrapping dice.rolls() inside the reactive method
+    # and aliasing it in get.scores() provides a caching method.
+    # Unless the actual inputs for dice.rolls() changes this
+    # method won't get called again.
+    get.scores &lt;- reactive({
+      dice.rolls(
+        number.dice = input$dice, 
+        number.rolls = input$rolls,
+        sides = input$sides
+      )
+    })
+    
+    output$scores &lt;- renderPlot({
+      scores = get.scores()
+  
+      
+      histogrm &lt;- NULL
+      
+      # Testing if the bins should be autobinned or not.
+      if(input$auto_bins)
+      {
+        histogrm &lt;- hist(scores)
+      }
+      else
+      {
+        histogrm &lt;- hist(scores, breaks = input$bins)
+      }
+      histogrm
+      
+    })
+  
+  
+  })</code></pre>
+<p><code>ui.R</code></p>
+<pre class="r"><code>  library(shiny)
+  library(shinyjs)
+  
+  dice.rolls &lt;- function(number.dice = 1, number.rolls = 1, sides=6)
+  {
+    output &lt;- NULL
+    if (!is.element(sides, allowable.sides))
+    {
+      return(paste(&quot;Error: &quot;, toString(sides), &quot; is not an allowable number of sides.&quot;))
+    }
+    
+    return(replicate(number.rolls, sum(sample(1:sides, number.dice, replace = TRUE))))
+    
+  }
+  
+  
+  allowable.sides &lt;- c(1:20, 22 , 24, 30, 32, 34, 48, 50, 60, 100, 120, 144)
+  
+  shinyServer(function(input, output, session) {
+    
+    # Observer to see if we should disable the bins slider.
+    observe({
+      if (input$auto_bins == TRUE) {
+        shinyjs::disable(&quot;bins&quot;)
+      } else {
+        shinyjs::enable(&quot;bins&quot;)
+      }
+    })
+    
+    # Wrapping dice.rolls() inside the reactive method
+    # and aliasing it in get.scores() provides a caching method.
+    # Unless the actual inputs for dice.rolls() changes this
+    # method won't get called again.
+    get.scores &lt;- reactive({
+      dice.rolls(
+        number.dice = input$dice, 
+        number.rolls = input$rolls,
+        sides = input$sides
+      )
+    })
+    
+    output$scores &lt;- renderPlot({
+      scores = get.scores()
+  
+      
+      histogrm &lt;- NULL
+      
+      # Testing if the bins should be autobinned or not.
+      if(input$auto_bins)
+      {
+        histogrm &lt;- hist(scores)
+      }
+      else
+      {
+        histogrm &lt;- hist(scores, breaks = input$bins)
+      }
+      histogrm
+      
+    })
+  
+  
+  })
+</code></pre>
+</div>
+<div id="layouts-1" class="section level3">
+<h3>Layouts</h3>
+<p>There are a lot of layouts. Just as a quick exercise, we can add tabs to our main panel. Change the main panel in <code>ui.R</code> to look like this.</p>
+<pre class="r"><code>  mainPanel(
+      tabsetPanel(type = &quot;tabs&quot;, 
+        tabPanel(&quot;Plot&quot;, plotOutput(&quot;scores&quot;)),
+        tabPanel(&quot;Summary&quot;, verbatimTextOutput(&quot;summary&quot;)),
+        tabPanel(&quot;Table&quot;, tableOutput(&quot;table&quot;))
+      )
+      
+    )</code></pre>
+<p>Then we need to change <code>server.R</code> to supply the outputs we just defined.</p>
+<pre class="r"><code>  output$scores &lt;- renderPlot({
+      scores = get.scores()
+  
+      
+      histogrm &lt;- NULL
+      
+      # Testing if the bins should be autobinned or not.
+      if(input$auto_bins)
+      {
+        histogrm &lt;- hist(scores)
+      }
+      else
+      {
+        histogrm &lt;- hist(scores, breaks = input$bins)
+      }
+      histogrm
+      
+    })
+    
+    output$summary &lt;- renderPrint({summary(get.scores())})
+    
+    output$table &lt;- renderTable({data.frame(scores=get.scores())})</code></pre>
+<p>Full code can be seen on Github <a href="https://github.com/olendorf/code4lib2016_random_stochastic_chance1/tree/v1.2-panels" class="uri">https://github.com/olendorf/code4lib2016_random_stochastic_chance1/tree/v1.2-panels</a>.</p>
+</div>
+<div id="styles" class="section level3">
+<h3>Styles</h3>
+<p>We can customize even more with styles. For a quick change we can just use the <strong><em>ShinyThemes</em></strong> package. Install the package then edit <code>ui.R</code> to look like this.</p>
+<pre class="r"><code>  library(shiny)
+  library(shinythemes)
+  
+  shinyUI(fluidPage(theme = shinytheme(&quot;spacelab&quot;),
+  ...
+  ...
+  ...
+  ))</code></pre>
+</div>
 </div>
 
 
