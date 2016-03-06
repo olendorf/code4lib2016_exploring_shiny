@@ -417,3 +417,88 @@ We can customize even more with styles. For a quick change we can just use the *
   ...
   ))
 ```
+
+## Making it more dynamic
+
+Often with web applications we want it to be dynamic as much as possible. Lets try to dynamically create **Tab Panels** based on the data. We'll use the `iris` data set. Take a moment and explore it, `head(iris)`. Create a new shiny app, call it `shiny_iris`. 
+
+Then in the `ui.R` make it look like this.
+
+```r
+  library(shiny)
+  
+  shinyUI(fluidPage(
+  
+    # Application title
+    titlePanel("Old Faithful Geyser Data"),
+  
+    # Sidebar with a slider input for number of bins
+    sidebarLayout(
+      sidebarPanel(
+        sliderInput("bins",
+                    "Number of bins:",
+                    min = 1,
+                    max = 50,
+                    value = 30)
+      ),
+  
+      # Show a plot of the generated distribution
+      mainPanel(
+        uiOutput("irisTabs")
+      )
+    )
+  ))
+```
+
+Notice we haven't defined our Tabs. the `uiOutput("irisTabs")` tell R to expect those UI components to be created by the Server in `output$irisTabs`. In `server.R` we need to do a lot of work. First we need to define the Tabs.
+
+```r
+
+ # Helper function to capitilize a word.
+ capitalize <- function(str){ 
+    paste(
+      toupper(substring(str, 1, 1)), 
+      substring(str, 2), sep="")
+  }
+ 
+ 
+ # Helper function to create the Tab Panels, makes using lappy a little easier.
+  tabPanel.plotOutput <- function(name) {
+    tabPanel(name, plotOutput(name))
+  }
+  
+  # Gets the tabs from the data, and adds an All tab as well.
+  output$irisTabs <- renderUI({
+    tabs <- c("All", lapply(levels(iris$Species), capitalize))
+    tabs <- lapply(tabs, tabPanel.plotOutput)
+    do.call(tabsetPanel, tabs)
+  })
+```
+
+If you run the application now, you should see the Tabs nicely prepared. But we don't have any data yet. This will take some work, and took me some trial and error.
+
+```r
+  # Make the "All" tab since its not in the data
+  output[["All"]] <- renderPlot(
+   hist(iris$Sepal.Length, main = "All Species")
+  )
+  
+  # Get our list of the species. 
+  species <- levels(iris$Species)
+  
+  # For eac species add the data.
+  for(index in 1:length(species))
+  {
+   # If we don't add the local, it only shows the last plot on all the tabs.
+   local({
+     tab.name <- capitalize(species[index])
+     subset.data <- subset(iris, Species == species[index])
+     output[[tab.name]] <- renderPlot({
+       hist(subset.data$Sepal.Length, main = tab.name)
+     })
+   })
+   
+   }
+```
+
+
